@@ -30,9 +30,9 @@ let config = {
   DYE_RESOLUTION: 1024,
   CAPTURE_RESOLUTION: 1024,
   DENSITY_DISSIPATION: 0.02, // 1 for gradual dissipation, 0 for no dissipation
-  VELOCITY_DISSIPATION: 2,
+  VELOCITY_DISSIPATION: 3,
   PRESSURE: 0.9,
-  PRESSURE_ITERATIONS: 100,
+  PRESSURE_ITERATIONS: 30,
   CURL: 30,
   SPLAT_RADIUS: 1.0,
   SPLAT_FORCE: 6000,
@@ -205,11 +205,10 @@ function captureScreenshot() {
 
   let captureCanvas = textureToCanvas(texture, target.width, target.height);
   let datauri = captureCanvas.toDataURL();
-  let stencil = document.getElementById("stencil");
-  let finalImg = document.getElementById("finalImg");
+  let stencil = document.getElementById('stencil');
+  let finalImg = document.getElementById('finalImg');
   stencil.src = datauri;
   finalImg.src = datauri;
-
 
   // downloadURI("fluid.png", datauri);
   // URL.revokeObjectURL(datauri);
@@ -1388,6 +1387,69 @@ window.addEventListener('keydown', function (e) {
   if (e.key === ' ') {
     splatStack.push(parseInt(Math.random() * 20) + 5);
   }
+});
+
+// document.addEventListener("click", printMousePos, true);
+// function printMousePos(e) {
+//   let cursorX = e.pageX;
+//   let cursorY = e.pageY;
+//   document.getElementById("test").innerHTML =
+//     "x: " + cursorX + ", y: " + cursorY;
+// }
+
+
+let xVal;
+let yVal;
+let zVal;
+let coords = [];
+let numberOfHands = 0;
+
+window.electron.ipcRenderer.on('main-to-render', async (message) => {
+  if (String(message).startsWith('HAND:')) {
+    // get only the coords
+    coords = String(message).match(/-?\d+/g).map(Number);
+
+    // set coordinates
+    xVal = coords[0];
+    zVal = coords[2];
+  }
+
+  if (String(message).startsWith('NUMBER:')) {
+    numberOfHands = String(message).match(/-?\d+/g).map(Number)
+    // console.log(numberOfHands)
+  }
+
+    let posX = xVal;
+    let posY = zVal;
+
+    let oldMax = -250;
+		let oldMin = 250;
+		let newMax = 1920;
+		let newMin = 0;
+		let oldRange = oldMax - oldMin;
+		let newRange = newMax - newMin;
+		let oldValue = xVal;
+		let xnewValue = ((oldValue - oldMin) * newRange) / oldRange + newMin;
+
+		let yOldMax = 1250;
+    let yOldMin = 900
+		let yNewMax = 1080;
+    let yNewMin = 0;
+    let yoldRange = yOldMax - yOldMin;
+		let ynewRange = yNewMax -yNewMin;
+		let yoldValue = zVal;
+		let ynewValue = ((yoldValue - yOldMin) * ynewRange) / yoldRange + yNewMin;
+
+
+
+    while (numberOfHands >= pointers.length) {
+      pointers.push(new pointerPrototype());
+    }
+    for (let i = 0; i < numberOfHands; i++) {
+      let pointer = pointers[i];
+      updatePointerMoveData(pointer, xnewValue, ynewValue);
+    }
+
 });
 
 function updatePointerDownData(pointer, id, posX, posY) {

@@ -16,8 +16,25 @@ export default function App() {
 
   let coords = [];
 
+    // getting hand coordinates from backend
+    window.electron.ipcRenderer.on('main-to-render', async (message) => {
+      // eslint-disable-next-line no-console
+
+      if (String(message).startsWith("HAND:")) {
+        //get only the coords
+        coords = String(message).match(/-?\d+/g).map(Number);
+         //console.log(coords)
+
+        //set coordinates
+        setXval(coords[0]);
+        setYval(coords[1]);
+        setZval(coords[2]);
+      }
+    });
+
+
   // run the fluid-sim static file
-  if (!done) {
+  if (!done && !document.getElementsByClassName("fluid-canvas")[0]) {
     const script = document.createElement('script');
     script.src = 'static://js/fluid-init.js';
     script.async = true;
@@ -36,26 +53,7 @@ export default function App() {
     }
   });
 
-  window.addEventListener('touchstart', function (e) {
 
-  });
-
-  // getting hand coordinates from backend
-  // window.electron.ipcRenderer.on('main-to-render', (message) => {
-  //   // eslint-disable-next-line no-console
-  //   console.log(message);
-  //   if (String(result).startsWith("HAND:")) {
-  //     //get only the coords
-  //     coords = String(message).match(/-?\d+/g).map(Number);
-  //     // console.log(coords)
-
-  //     //set coordinates
-  //     setXval(coords[0]);
-  //     setYval(coords[1]);
-  //     setZval(coords[2]);
-  //   }
-
-  // });
 
   return (
     <div className="background">

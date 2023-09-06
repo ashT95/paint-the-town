@@ -16,19 +16,19 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { PythonShell } from 'python-shell';
 
-// let pshell = new PythonShell('backend/yolov5/main_api.py', {
-//   // The '-u' tells Python to flush every time
-//   pythonOptions: ['-u'],
-//   args: [],
-// });
+let pshell = new PythonShell('backend/yolov5/main_api.py', {
+  // The '-u' tells Python to flush every time
+  pythonOptions: ['-u'],
+  args: [],
+});
 
-// pshell.on('message', async (message) => {
-//   // sending data to frontend window
-//   if (mainWindow !== null) {
-//     // console.log(message);
-//     mainWindow.webContents.send('main-to-render', message);
-//   }
-// });
+pshell.on('message', (message) => {
+  // sending data to frontend window
+  if (mainWindow !== null) {
+    // console.log(message);
+    mainWindow.webContents.send('main-to-render', message);
+  }
+});
 
 class AppUpdater {
   constructor() {
@@ -44,11 +44,11 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 
-ipcMain.on('ipc-example', async (event, arg) => {
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply('ipc-example', msgTemplate('pong'));
-});
+// ipcMain.on('ipc-example', async (event, arg) => {
+//   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
+//   console.log(msgTemplate(arg));
+//   event.reply('ipc-example', msgTemplate('pong'));
+// });
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -96,7 +96,7 @@ const createWindow = () => {
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
-      devTools: false,
+      //devTools: false,
     },
   });
 
@@ -123,7 +123,7 @@ const createWindow = () => {
   // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
-    return { action: 'allow' };
+    return { action: 'deny' };
   });
 
 
@@ -157,7 +157,15 @@ app
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
-      if (mainWindow === null) createWindow();
+      if (mainWindow === null){
+        protocol.handle('static', (request) => {
+          const filePath = getAssetPath('js/fluid-init.js');
+          return net.fetch(filePath);
+        });
+
+        createWindow();
+      }
+
     });
   })
   .catch(console.log);

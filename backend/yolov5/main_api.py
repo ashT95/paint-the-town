@@ -10,7 +10,7 @@ import cv2
 import depthai as dai
 import numpy as np
 import time
-import math
+import operator
 
 # Define blob path/file location
 nnPath = str(
@@ -101,6 +101,7 @@ detectionNetwork.input.setBlocking(False)
 detectionNetwork.setDepthLowerThreshold(200)
 detectionNetwork.setDepthUpperThreshold(30000)
 
+
 # Properties
 camRgb.setPreviewSize(640, 352)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
@@ -110,9 +111,9 @@ camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
 camRgb.setFps(6)
 
 monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
+monoLeft.setBoardSocket(dai.CameraBoardSocket.CAM_B)
 monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+monoRight.setBoardSocket(dai.CameraBoardSocket.CAM_C)
 
 # Linking
 monoLeft.out.link(stereo.left)
@@ -134,24 +135,27 @@ detectionNetwork.outNetwork.link(nnNetworkOut.input)
 # stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
 # Align depth map to the perspective of RGB camera, on which inference is done
 stereo.initialConfig.setConfidenceThreshold(255)
-stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
+stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
 stereo.setOutputSize(monoLeft.getResolutionWidth(), monoLeft.getResolutionHeight())
+
 
 # Connect to device and start pipeline
 with dai.Device(pipeline) as device:
     device.setIrLaserDotProjectorBrightness(100) # in mA, 0..1200
     device.setIrFloodLightBrightness(0) # in mA, 0..1500
     # Output queues will be used to get the rgb frames and nn data from the outputs defined above
-    previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-    detectionNNQueue = device.getOutputQueue(name="nn", maxSize=4, blocking=False)
-    depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
-    networkQueue = device.getOutputQueue(name="nnNetwork", maxSize=4, blocking=False)
+    previewQueue = device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
+    detectionNNQueue = device.getOutputQueue(name="nn", maxSize=1, blocking=False)
+    depthQueue = device.getOutputQueue(name="depth", maxSize=1, blocking=False)
+    networkQueue = device.getOutputQueue(name="nnNetwork", maxSize=1, blocking=False)
 
     startTime = time.monotonic()
     counter = 0
+    detections = []
     fps = 0
     color = (255, 255, 255)
     printOutputLayersOnce = True
+    hands = set()
 
     # def _calc_angle(frame, offset, HFOV):
     #     return math.atan(math.tan(HFOV / 2.0) * offset / (frame.shape[1] / 2.0))
@@ -189,7 +193,8 @@ with dai.Device(pipeline) as device:
             counter = 0
             startTime = current_time
 
-        detections = inDet.detections
+        if inDet is not None:
+          detections = inDet.detections
 
         # def calculate_distance(coords):
         #     return math.sqrt(coords.x ** 2 + coords.y ** 2 + coords.z ** 2)
@@ -200,7 +205,9 @@ with dai.Device(pipeline) as device:
         # If the frame is available, draw bounding boxes on it and show the frame
         height = frame.shape[0]
         width = frame.shape[1]
+
         for detection in detections:
+
             try:
                 label = labels[detection.label]
             except:
@@ -208,6 +215,7 @@ with dai.Device(pipeline) as device:
 
 
             if (label == "hand") :
+
                 roiData = detection.boundingBoxMapping
                 roi = roiData.roi
                 roi = roi.denormalize(depthFrameColor.shape[1], depthFrameColor.shape[0])
@@ -257,15 +265,18 @@ with dai.Device(pipeline) as device:
                 cv2.putText(frame, f"Z: {int(detection.spatialCoordinates.z)}" , (x1 + 10, y1 + 80), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX)
 
-
-
                 # dist = int(calculate_distance(detection.spatialCoordinates))
                 # pos = get_lens_position(dist)
                 # print(pos)
 
+
+
             # --------------------------------------SENDING COORDINATES TO ELECTRON MAIN---------------------------------------------------- #
-                print(f"HAND:X:{int(detection.spatialCoordinates.x)},Y:{int(detection.spatialCoordinates.y)},Z:{int(detection.spatialCoordinates.z)}", flush=True)
+                print(f"NUMBER: {operator.length_hint(detections)}")
                 sys.stdout.flush()
+                print(f"HAND:X:{int(detection.spatialCoordinates.x)},Y:{int(detection.spatialCoordinates.y)},Z:{int(detection.spatialCoordinates.z)}")
+                sys.stdout.flush()
+
 
             # if (label == "person") :
                 # print(f"PERSON:X:{int(detection.spatialCoordinates.x)},Y:{int(detection.spatialCoordinates.y)},Z:{int(detection.spatialCoordinates.z)}")
